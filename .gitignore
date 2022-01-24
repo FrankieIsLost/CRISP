@@ -1,4 +1,4 @@
-out/
 cache/
-node_modules/
-.env
+out/
+.ipynb_checkpoints/
+__pycache__/
