@@ -4,7 +4,7 @@ pragma solidity 0.8.11;
 import {ERC721} from "solmate/tokens/ERC721.sol";
 import {PRBMathSD59x18} from "../lib/prb-math/contracts/PRBMathSD59x18.sol";
 
-///@notice CRISP -- a mechanism to sell NFTs continuously at a targeted rate over time
+/// @notice CRISP -- a mechanism to sell NFTs continuously at a targeted rate over time
 abstract contract CRISP is ERC721 {
     using PRBMathSD59x18 for int256;
 
@@ -12,40 +12,42 @@ abstract contract CRISP is ERC721 {
     /// ------- CRISP STATE -------
     /// ---------------------------
 
-    ///@notice block on which last purchase occured
-    uint256 public lastPurchaseBlock;
+    /// @notice block on which last purchase occured
+    uint32 public lastPurchaseBlock;
 
-    ///@notice block on which we start decaying price
-    uint256 public priceDecayStartBlock;
+    /// @notice block on which we start decaying price
+    uint32 public priceDecayStartBlock;
 
-    ///@notice last minted token ID
-    uint256 public curTokenId = 0;
+    /// @notice last minted token ID
+    uint192 public curTokenId = 0;
 
-    ///@notice Starting EMS, before time decay. 59.18-decimal fixed-point
+    /// @notice Starting EMS, before time decay. 59.18-decimal fixed-point
     int256 public nextPurchaseStartingEMS;
 
-    ///@notice Starting price for next purchase, before time decay. 59.18-decimal fixed-point
+    /// @notice Starting price for next purchase, before time decay. 59.18-decimal fixed-point
     int256 public nextPurchaseStartingPrice;
 
     /// ---------------------------
     /// ---- CRISP PARAMETERS -----
     /// ---------------------------
 
-    ///@notice EMS target. 59.18-decimal fixed-point
+    /// @notice EMS target. 59.18-decimal fixed-point
     int256 public immutable targetEMS;
 
-    ///@notice controls decay of sales in EMS. 59.18-decimal fixed-point
+    /// @notice controls decay of sales in EMS. 59.18-decimal fixed-point
     int256 public immutable saleHalflife;
 
-    ///@notice controls upward price movement. 59.18-decimal fixed-point
+    /// @notice controls upward price movement. 59.18-decimal fixed-point
     int256 public immutable priceSpeed;
 
-    ///@notice controls price decay. 59.18-decimal fixed-point
+    /// @notice controls price decay. 59.18-decimal fixed-point
     int256 public immutable priceHalflife;
 
     /// ---------------------------
     /// ------- ERRORS  -----------
     /// ---------------------------
+
+    error CastUint32();
 
     error InsufficientPayment();
 
@@ -60,8 +62,8 @@ abstract contract CRISP is ERC721 {
         int256 _priceHalflife,
         int256 _startingPrice
     ) ERC721(_name, _symbol) {
-        lastPurchaseBlock = block.number;
-        priceDecayStartBlock = block.number;
+        lastPurchaseBlock = _blockNumber();
+        priceDecayStartBlock = _blockNumber();
 
         saleHalflife = _saleHalflife;
         priceSpeed = _priceSpeed;
@@ -79,7 +81,7 @@ abstract contract CRISP is ERC721 {
         nextPurchaseStartingPrice = _startingPrice;
     }
 
-    ///@notice get current EMS based on block number. Returns 59.18-decimal fixed-point
+    /// @notice get current EMS based on block number. Returns 59.18-decimal fixed-point
     function getCurrentEMS() public view returns (int256 result) {
         int256 blockInterval = int256(block.number - lastPurchaseBlock);
         blockInterval = blockInterval.fromInt();
@@ -89,7 +91,7 @@ abstract contract CRISP is ERC721 {
         result = nextPurchaseStartingEMS.mul(weightOnPrev);
     }
 
-    ///@notice get quote for purchasing in current block, decaying price as needed. Returns 59.18-decimal fixed-point
+    /// @notice get quote for purchasing in current block, decaying price as needed. Returns 59.18-decimal fixed-point
     function getQuote() public view returns (int256 result) {
         if (block.number <= priceDecayStartBlock) {
             result = nextPurchaseStartingPrice;
@@ -103,7 +105,7 @@ abstract contract CRISP is ERC721 {
         }
     }
 
-    ///@notice Get starting price for next purchase before time decay. Returns 59.18-decimal fixed-point
+    /// @notice Get starting price for next purchase before time decay. Returns 59.18-decimal fixed-point
     function getNextStartingPrice(int256 lastPurchasePrice)
         public
         view
@@ -119,23 +121,23 @@ abstract contract CRISP is ERC721 {
         }
     }
 
-    ///@notice Find block in which time based price decay should start
-    function getPriceDecayStartBlock() internal view returns (uint256 result) {
+    /// @notice Find block in which time based price decay should start
+    function getPriceDecayStartBlock() internal view returns (uint32 result) {
         int256 mismatchRatio = nextPurchaseStartingEMS.div(targetEMS);
         //if mismatch ratio above 1, decay should start in future
         if (mismatchRatio > PRBMathSD59x18.fromInt(1)) {
             uint256 decayInterval = uint256(
                 saleHalflife.mul(mismatchRatio.log2()).ceil().toInt()
             );
-            result = block.number + decayInterval;
+            result = _blockNumber() + _u32(decayInterval);
         }
         //else decay should start at the current block
         else {
-            result = block.number;
+            result = _blockNumber();
         }
     }
 
-    ///@notice Pay current price and mint new NFT
+    /// @notice Pay current price and mint new NFT
     function mint() public payable {
         int256 price = getQuote();
         uint256 priceScaled = uint256(price.toInt());
@@ -148,7 +150,7 @@ abstract contract CRISP is ERC721 {
         nextPurchaseStartingEMS = getCurrentEMS() + PRBMathSD59x18.fromInt(1);
         nextPurchaseStartingPrice = getNextStartingPrice(price);
         priceDecayStartBlock = getPriceDecayStartBlock();
-        lastPurchaseBlock = block.number;
+        lastPurchaseBlock = _blockNumber();
 
         //issue refund
         uint256 refund = msg.value - priceScaled;
@@ -156,5 +158,16 @@ abstract contract CRISP is ERC721 {
         if (!sent) {
             revert FailedToSendEther();
         }
+    }
+
+    function _u32(uint256 x) private pure returns (uint32 y) {
+        if (x > type(uint32).max) {
+            revert CastUint32();
+        }
+        y = uint32(x);
+    }
+
+    function _blockNumber() private view returns (uint32) {
+        return uint32(block.number);
     }
 }
