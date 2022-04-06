@@ -4,6 +4,8 @@ pragma solidity 0.8.11;
 import {CRISP} from "../../CRISP.sol";
 
 contract MockCRISP is CRISP {
+    uint256 public afterMintHookInput;
+
     constructor(
         string memory _name,
         string memory _symbol,
@@ -31,4 +33,8 @@ contract MockCRISP is CRISP {
         override
         returns (string memory)
     {}
+
+    function afterMint(uint256 priceScaled) internal override {
+        afterMintHookInput = priceScaled;
+    }
 }

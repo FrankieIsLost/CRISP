@@ -101,6 +101,19 @@ contract CRISPTest is DSTest {
         assertLt(startingEMS, finalEMS);
     }
 
+    //hook should be called after minting
+    function testAfterMintHook() public {
+        assertEq(token.afterMintHookInput(), 0);
+
+        uint256 firstPrice = uint256(token.getQuote().toInt());
+        token.mint{value: firstPrice}();
+        assertEq(token.afterMintHookInput(), firstPrice);
+
+        uint256 secondPrice = uint256(token.getQuote().toInt());
+        token.mint{value: secondPrice + 1 ether}();
+        assertEq(token.afterMintHookInput(), secondPrice);
+    }
+
     fallback() external payable {}
 
     function mineBlocks(uint256 numBlocks) private {

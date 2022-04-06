@@ -150,6 +150,9 @@ abstract contract CRISP is ERC721 {
         priceDecayStartBlock = uint64(getPriceDecayStartBlock());
         lastPurchaseBlock = blockNumber();
 
+        //hook for caller to do something with the received ETH based on the price paid
+        afterMint(priceScaled);
+
         //issue refund
         uint256 refund = msg.value - priceScaled;
         (bool sent, ) = msg.sender.call{value: refund}("");
@@ -157,6 +160,8 @@ abstract contract CRISP is ERC721 {
             revert FailedToSendEther();
         }
     }
+
+    function afterMint(uint256 priceScaled) internal virtual {}
 
     function blockNumber() internal view returns (uint64) {
         return uint64(block.number);
