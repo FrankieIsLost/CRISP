@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Unlicense
-pragma solidity 0.8.11;
+pragma solidity ^0.8.11;
 
 import {ERC721} from "solmate/tokens/ERC721.sol";
 import {PRBMathSD59x18} from "../lib/prb-math/contracts/PRBMathSD59x18.sol";
