@@ -142,7 +142,10 @@ abstract contract CRISP is ERC721 {
         if (msg.value < priceScaled) {
             revert InsufficientPayment();
         }
-        _mint(msg.sender, curTokenId++);
+
+        unchecked {
+            _mint(msg.sender, curTokenId++);
+        }
 
         //update state
         nextPurchaseStartingEMS = getCurrentEMS() + PRBMathSD59x18.fromInt(1);
