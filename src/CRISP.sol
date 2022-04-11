@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Unlicense
-pragma solidity 0.8.11;
+pragma solidity ^0.8.11;
 
 import {ERC721} from "solmate/tokens/ERC721.sol";
 import {PRBMathSD59x18} from "../lib/prb-math/contracts/PRBMathSD59x18.sol";
@@ -13,13 +13,13 @@ abstract contract CRISP is ERC721 {
     /// ---------------------------
 
     ///@notice block on which last purchase occured
-    uint256 public lastPurchaseBlock;
+    uint64 public lastPurchaseBlock;
 
     ///@notice block on which we start decaying price
-    uint256 public priceDecayStartBlock;
+    uint64 public priceDecayStartBlock;
 
     ///@notice last minted token ID
-    uint256 public curTokenId = 0;
+    uint128 public curTokenId = 0;
 
     ///@notice Starting EMS, before time decay. 59.18-decimal fixed-point
     int256 public nextPurchaseStartingEMS;
@@ -60,8 +60,8 @@ abstract contract CRISP is ERC721 {
         int256 _priceHalflife,
         int256 _startingPrice
     ) ERC721(_name, _symbol) {
-        lastPurchaseBlock = block.number;
-        priceDecayStartBlock = block.number;
+        lastPurchaseBlock = blockNumber();
+        priceDecayStartBlock = blockNumber();
 
         saleHalflife = _saleHalflife;
         priceSpeed = _priceSpeed;
@@ -81,7 +81,9 @@ abstract contract CRISP is ERC721 {
 
     ///@notice get current EMS based on block number. Returns 59.18-decimal fixed-point
     function getCurrentEMS() public view returns (int256 result) {
-        int256 blockInterval = int256(block.number - lastPurchaseBlock);
+        int256 blockInterval = int256(
+            uint256(blockNumber() - lastPurchaseBlock)
+        );
         blockInterval = blockInterval.fromInt();
         int256 weightOnPrev = PRBMathSD59x18.fromInt(2).pow(
             -blockInterval.div(saleHalflife)
@@ -91,13 +93,14 @@ abstract contract CRISP is ERC721 {
 
     ///@notice get quote for purchasing in current block, decaying price as needed. Returns 59.18-decimal fixed-point
     function getQuote() public view returns (int256 result) {
-        if (block.number <= priceDecayStartBlock) {
+        if (blockNumber() <= priceDecayStartBlock) {
             result = nextPurchaseStartingPrice;
         }
         //decay price if we are past decay start block
         else {
-            int256 decayInterval = int256(block.number - priceDecayStartBlock)
-                .fromInt();
+            int256 decayInterval = int256(
+                uint256(blockNumber() - priceDecayStartBlock)
+            ).fromInt();
             int256 decay = (-decayInterval).div(priceHalflife).exp();
             result = nextPurchaseStartingPrice.mul(decay);
         }
@@ -127,11 +130,11 @@ abstract contract CRISP is ERC721 {
             uint256 decayInterval = uint256(
                 saleHalflife.mul(mismatchRatio.log2()).ceil().toInt()
             );
-            result = block.number + decayInterval;
+            result = blockNumber() + decayInterval;
         }
         //else decay should start at the current block
         else {
-            result = block.number;
+            result = blockNumber();
         }
     }
 
@@ -142,13 +145,19 @@ abstract contract CRISP is ERC721 {
         if (msg.value < priceScaled) {
             revert InsufficientPayment();
         }
-        _mint(msg.sender, curTokenId++);
+
+        unchecked {
+            _mint(msg.sender, curTokenId++);
+        }
 
         //update state
         nextPurchaseStartingEMS = getCurrentEMS() + PRBMathSD59x18.fromInt(1);
         nextPurchaseStartingPrice = getNextStartingPrice(price);
-        priceDecayStartBlock = getPriceDecayStartBlock();
-        lastPurchaseBlock = block.number;
+        priceDecayStartBlock = uint64(getPriceDecayStartBlock());
+        lastPurchaseBlock = blockNumber();
+
+        //hook for caller to do something with the received ETH based on the price paid
+        afterMint(priceScaled);
 
         //issue refund
         uint256 refund = msg.value - priceScaled;
@@ -156,5 +165,11 @@ abstract contract CRISP is ERC721 {
         if (!sent) {
             revert FailedToSendEther();
         }
+    }
+
+    function afterMint(uint256 priceScaled) internal virtual {}
+
+    function blockNumber() internal view returns (uint64) {
+        return uint64(block.number);
     }
 }

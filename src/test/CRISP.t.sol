@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Unlicense
-pragma solidity 0.8.11;
+pragma solidity ^0.8.11;
 
 import {DSTest} from "ds-test/test.sol";
 import {MockCRISP} from "./mock/MockCRISP.sol";
@@ -99,6 +99,19 @@ contract CRISPTest is DSTest {
         purchaseToken();
         int256 finalEMS = token.getCurrentEMS();
         assertLt(startingEMS, finalEMS);
+    }
+
+    //hook should be called after minting
+    function testAfterMintHook() public {
+        assertEq(token.afterMintHookInput(), 0);
+
+        uint256 firstPrice = uint256(token.getQuote().toInt());
+        token.mint{value: firstPrice}();
+        assertEq(token.afterMintHookInput(), firstPrice);
+
+        uint256 secondPrice = uint256(token.getQuote().toInt());
+        token.mint{value: secondPrice + 1 ether}();
+        assertEq(token.afterMintHookInput(), secondPrice);
     }
 
     fallback() external payable {}

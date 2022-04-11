@@ -1,0 +1,8 @@
+CRISPTest:testAfterMintHook() (gas: 190118)
+CRISPTest:testEMSDecay() (gas: 23195)
+CRISPTest:testEMSIncrease() (gas: 141400)
+CRISPTest:testPriceDecayAboveTargetRate() (gas: 135485)
+CRISPTest:testPriceDecayBelowTargetRate() (gas: 139678)
+CRISPTest:testPriceIncreaseAboveTargetRate() (gas: 186427)
+CRISPTest:testPriceIncreaseBelowTargetRate() (gas: 163550)
+CRISPTest:testStartingPrice() (gas: 12009)
