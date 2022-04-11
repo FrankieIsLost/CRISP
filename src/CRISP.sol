@@ -81,7 +81,9 @@ abstract contract CRISP is ERC721 {
 
     ///@notice get current EMS based on block number. Returns 59.18-decimal fixed-point
     function getCurrentEMS() public view returns (int256 result) {
-        int256 blockInterval = int256(uint256(blockNumber() - lastPurchaseBlock));
+        int256 blockInterval = int256(
+            uint256(blockNumber() - lastPurchaseBlock)
+        );
         blockInterval = blockInterval.fromInt();
         int256 weightOnPrev = PRBMathSD59x18.fromInt(2).pow(
             -blockInterval.div(saleHalflife)
@@ -96,8 +98,9 @@ abstract contract CRISP is ERC721 {
         }
         //decay price if we are past decay start block
         else {
-            int256 decayInterval = int256(uint256(blockNumber() - priceDecayStartBlock))
-                .fromInt();
+            int256 decayInterval = int256(
+                uint256(blockNumber() - priceDecayStartBlock)
+            ).fromInt();
             int256 decay = (-decayInterval).div(priceHalflife).exp();
             result = nextPurchaseStartingPrice.mul(decay);
         }
